@@ -11,8 +11,8 @@
   }
   table {
     border-collapse: collapse;
-    background:white;
     margin:auto;
+    margin-bottom:20px;
   }
   th, td {
     border:2px solid #333;
@@ -39,10 +39,17 @@
     font-weight:bold;
     outline:none;
   }
-  /* Make header inputs visible */
+  /* Header inputs: white text on dark background */
   th input[type="text"] {
-    background: white;
-    color: black;
+    background:#222;
+    color:white;
+    border-radius:4px;
+    padding:2px 4px;
+  }
+  /* Row label inputs: dark text on light background */
+  td:first-child input[type="text"] {
+    background:#eee;
+    color:black;
     border-radius:4px;
     padding:2px 4px;
   }
@@ -50,6 +57,27 @@
     margin:6px;
     padding:8px 12px;
     font-size:14px;
+  }
+  /* Notes section */
+  #notes {
+    width: 95%;
+    min-height: 100px;
+    padding:8px;
+    font-size:14px;
+    border:2px solid #333;
+    border-radius:6px;
+    resize: vertical;
+    display:block;
+    margin:auto;
+    box-sizing:border-box;
+    background:white;
+    color:black;
+  }
+  label {
+    display:block;
+    text-align:center;
+    font-weight:bold;
+    margin-bottom:4px;
   }
 </style>
 </head>
@@ -62,6 +90,11 @@
 
 <table id="grid"></table>
 
+<div style="margin-top:20px; width:95%; margin:auto;">
+  <label for="notes">Notes</label>
+  <textarea id="notes" placeholder="Add your notes here..."></textarea>
+</div>
+
 <script>
 let data = JSON.parse(localStorage.getItem("trackerData"));
 
@@ -69,11 +102,14 @@ if (!data) {
   data = {
     cols: ["Name 1","Name 2","Name 3"], // start with 3 people
     rows: ["Fajr","Dhuhr","Asr","Maghrib","Isha"],
-    checks: {}
+    checks: {},
+    notes: ""
   };
 }
 
+// Build table
 function saveData() {
+  data.notes = document.getElementById("notes").value;
   localStorage.setItem("trackerData", JSON.stringify(data));
 }
 
@@ -132,7 +168,13 @@ function buildTable() {
 
     table.appendChild(tr);
   });
+
+  // Load notes
+  document.getElementById("notes").value = data.notes || "";
 }
+
+// Notes auto-save
+document.getElementById("notes").addEventListener("input", saveData);
 
 function addColumn() {
   data.cols.push("New Name");
