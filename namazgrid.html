@@ -66,12 +66,13 @@
     font-size:14px;
     border:2px solid #333;
     border-radius:6px;
-    resize: vertical;
     display:block;
     margin:auto;
     box-sizing:border-box;
     background:white;
     color:black;
+    overflow:hidden; /* hide scroll */
+    resize:none; /* user cannot resize manually */
   }
   label {
     display:block;
@@ -170,11 +171,24 @@ function buildTable() {
   });
 
   // Load notes
-  document.getElementById("notes").value = data.notes || "";
+  const notes = document.getElementById("notes");
+  notes.value = data.notes || "";
+  adjustTextareaHeight();
 }
 
-// Notes auto-save
-document.getElementById("notes").addEventListener("input", saveData);
+// Auto-expand textarea to fit content
+function adjustTextareaHeight() {
+  const notes = document.getElementById("notes");
+  notes.style.height = "1px"; // reset height
+  notes.style.height = (notes.scrollHeight)+"px";
+}
+
+// Save notes and auto-expand as typing
+const notes = document.getElementById("notes");
+notes.addEventListener("input", () => {
+  saveData();
+  adjustTextareaHeight();
+});
 
 function addColumn() {
   data.cols.push("New Name");
