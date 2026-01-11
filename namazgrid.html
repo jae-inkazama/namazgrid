@@ -9,10 +9,14 @@
     background:#f7f7f7;
     padding:10px;
   }
+  .table-container {
+    width: 100%;
+    overflow-x: auto; /* allow scrolling on very small screens */
+  }
   table {
     border-collapse: collapse;
     margin:auto;
-    margin-bottom:20px;
+    min-width: 300px; /* ensures table doesn't shrink too small */
   }
   th, td {
     border:2px solid #333;
@@ -80,6 +84,21 @@
     font-weight:bold;
     margin-bottom:4px;
   }
+
+  /* Mobile adjustments */
+  @media (max-width: 400px) {
+    th, td {
+      font-size:12px;
+      padding:4px;
+    }
+    input[type="text"] {
+      font-size:12px;
+    }
+    button {
+      font-size:12px;
+      padding:6px 8px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -89,7 +108,9 @@
   <button onclick="addRow()">➕ Add Row</button>
 </div>
 
-<table id="grid"></table>
+<div class="table-container">
+  <table id="grid"></table>
+</div>
 
 <div style="margin-top:20px; width:95%; margin:auto;">
   <label for="notes">Notes</label>
@@ -101,14 +122,13 @@ let data = JSON.parse(localStorage.getItem("trackerData"));
 
 if (!data) {
   data = {
-    cols: ["Name 1","Name 2","Name 3"], // start with 3 people
+    cols: ["Name 1","Name 2","Name 3"],
     rows: ["Fajr","Dhuhr","Asr","Maghrib","Isha"],
     checks: {},
     notes: ""
   };
 }
 
-// Build table
 function saveData() {
   data.notes = document.getElementById("notes").value;
   localStorage.setItem("trackerData", JSON.stringify(data));
@@ -176,14 +196,13 @@ function buildTable() {
   adjustTextareaHeight();
 }
 
-// Auto-expand textarea to fit content
+// Auto-expand textarea
 function adjustTextareaHeight() {
   const notes = document.getElementById("notes");
-  notes.style.height = "1px"; // reset height
+  notes.style.height = "1px"; // reset
   notes.style.height = (notes.scrollHeight)+"px";
 }
 
-// Save notes and auto-expand as typing
 const notes = document.getElementById("notes");
 notes.addEventListener("input", () => {
   saveData();
