@@ -35,9 +35,16 @@
   input[type="text"] {
     width:100%;
     border:none;
-    background:transparent;
     text-align:center;
     font-weight:bold;
+    outline:none;
+  }
+  /* Make header inputs visible */
+  th input[type="text"] {
+    background: white;
+    color: black;
+    border-radius:4px;
+    padding:2px 4px;
   }
   button {
     margin:6px;
@@ -48,99 +55,4 @@
 </head>
 <body>
 
-<div style="text-align:center;margin-bottom:10px;">
-  <button onclick="addColumn()">➕ Add Person</button>
-  <button onclick="addRow()">➕ Add Row</button>
-</div>
-
-<table id="grid"></table>
-
-<script>
-let data = JSON.parse(localStorage.getItem("trackerData"));
-
-if (!data) {
-  data = {
-    cols: ["Name 1","Name 2","Name 3"], // start with 3 people
-    rows: ["Fajr","Dhuhr","Asr","Maghrib","Isha"],
-    checks: {}
-  };
-}
-
-function saveData() {
-  localStorage.setItem("trackerData", JSON.stringify(data));
-}
-
-function buildTable() {
-  const table = document.getElementById("grid");
-  table.innerHTML = "";
-
-  // Header
-  let tr = document.createElement("tr");
-  let th = document.createElement("th");
-  th.innerText = "Row";
-  tr.appendChild(th);
-
-  data.cols.forEach((c, ci) => {
-    let th = document.createElement("th");
-    let inp = document.createElement("input");
-    inp.type="text";
-    inp.value=c;
-    inp.oninput = () => {
-      data.cols[ci]=inp.value;
-      saveData();
-    };
-    th.appendChild(inp);
-    tr.appendChild(th);
-  });
-  table.appendChild(tr);
-
-  // Rows
-  data.rows.forEach((r, ri) => {
-    let tr = document.createElement("tr");
-
-    let tdLabel = document.createElement("td");
-    let rowInp = document.createElement("input");
-    rowInp.type="text";
-    rowInp.value=r;
-    rowInp.oninput = () => {
-      data.rows[ri]=rowInp.value;
-      saveData();
-    };
-    tdLabel.appendChild(rowInp);
-    tr.appendChild(tdLabel);
-
-    data.cols.forEach((c, ci) => {
-      let td = document.createElement("td");
-      let cb = document.createElement("input");
-      cb.type="checkbox";
-      let key = ri+"-"+ci;
-      cb.checked = data.checks[key] || false;
-      cb.onchange = () => {
-        data.checks[key]=cb.checked;
-        saveData();
-      };
-      td.appendChild(cb);
-      tr.appendChild(td);
-    });
-
-    table.appendChild(tr);
-  });
-}
-
-function addColumn() {
-  data.cols.push("New Name");
-  buildTable();
-  saveData();
-}
-
-function addRow() {
-  data.rows.push("New Row");
-  buildTable();
-  saveData();
-}
-
-buildTable();
-</script>
-
-</body>
-</html>
+<div style="text-align:center;margin-bottom:1
