@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editable Tracker</title>
+<title>Prayer Tracker</title>
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -60,7 +60,7 @@ let data = JSON.parse(localStorage.getItem("trackerData"));
 
 if (!data) {
   data = {
-    cols: ["Name 1","Name 2","Name 3","Name 4","Name 5"],
+    cols: ["Name 1","Name 2","Name 3"], // start with 3 people
     rows: ["Fajr","Dhuhr","Asr","Maghrib","Isha"],
     checks: {}
   };
