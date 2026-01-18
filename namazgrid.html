@@ -2,7 +2,12 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prayer Tracker</title>
+<title>Prayer Tracker - Shared</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -11,12 +16,12 @@
   }
   .table-container {
     width: 100%;
-    overflow-x: auto; /* allow scrolling on very small screens */
+    overflow-x: auto;
   }
   table {
     border-collapse: collapse;
     margin:auto;
-    min-width: 300px; /* ensures table doesn't shrink too small */
+    min-width: 300px;
   }
   th, td {
     border:2px solid #333;
@@ -43,14 +48,12 @@
     font-weight:bold;
     outline:none;
   }
-  /* Header inputs: white text on dark background */
   th input[type="text"] {
     background:#222;
     color:white;
     border-radius:4px;
     padding:2px 4px;
   }
-  /* Row label inputs: dark text on light background */
   td:first-child input[type="text"] {
     background:#eee;
     color:black;
@@ -61,8 +64,8 @@
     margin:6px;
     padding:8px 12px;
     font-size:14px;
+    cursor: pointer;
   }
-  /* Notes section */
   #notes {
     width: 95%;
     min-height: 100px;
@@ -75,8 +78,8 @@
     box-sizing:border-box;
     background:white;
     color:black;
-    overflow:hidden; /* hide scroll */
-    resize:none; /* user cannot resize manually */
+    overflow:hidden;
+    resize:none;
   }
   label {
     display:block;
@@ -85,7 +88,66 @@
     margin-bottom:4px;
   }
 
-  /* Mobile adjustments */
+  /* Sync status indicator */
+  .sync-bar {
+    text-align: center;
+    padding: 8px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .sync-bar.connected {
+    background: #d4edda;
+    color: #155724;
+  }
+  .sync-bar.disconnected {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  .sync-bar.local {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  /* Setup screen */
+  .setup-screen {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 20px;
+    background: white;
+    border: 2px solid #333;
+    border-radius: 10px;
+    text-align: center;
+  }
+  .setup-screen h2 {
+    margin-top: 0;
+  }
+  .setup-screen input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 2px solid #333;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+    text-align: left;
+  }
+  .setup-screen button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    margin: 5px 0;
+  }
+  .setup-screen .divider {
+    margin: 15px 0;
+    color: #666;
+  }
+
+  /* Main app hidden by default */
+  #mainApp {
+    display: none;
+  }
+
   @media (max-width: 400px) {
     th, td {
       font-size:12px;
@@ -103,54 +165,225 @@
 </head>
 <body>
 
-<div style="text-align:center;margin-bottom:10px;">
-  <button onclick="addColumn()">➕ Add Person</button>
-  <button onclick="addRow()">➕ Add Row</button>
+<!-- SETUP SCREEN -->
+<div id="setupScreen" class="setup-screen">
+  <h2>🕌 Prayer Tracker</h2>
+  <p>Create or join a shared prayer tracking space</p>
+  
+  <input type="text" id="setupName" placeholder="Your name (optional)">
+  
+  <button onclick="createNewSpace()">✨ Create New Space</button>
+  
+  <div class="divider">— or join existing —</div>
+  
+  <input type="text" id="joinCode" placeholder="Enter space code">
+  <button onclick="joinSpace()">🔗 Join Space</button>
 </div>
 
-<div class="table-container">
-  <table id="grid"></table>
-</div>
+<!-- MAIN APP -->
+<div id="mainApp">
+  <div class="sync-bar" id="syncBar">Connecting...</div>
 
-<div style="margin-top:20px; width:95%; margin:auto;">
-  <label for="notes">Notes</label>
-  <textarea id="notes" placeholder="Add your notes here..."></textarea>
+  <div style="text-align:center;margin-bottom:10px;">
+    <button onclick="addColumn()">➕ Add Person</button>
+    <button onclick="addRow()">➕ Add Row</button>
+    <button onclick="copyShareLink()" id="shareBtn">🔗 Share</button>
+  </div>
+
+  <div class="table-container">
+    <table id="grid"></table>
+  </div>
+
+  <div style="margin-top:20px; width:95%; margin:auto;">
+    <label for="notes">Notes</label>
+    <textarea id="notes" placeholder="Add your notes here..."></textarea>
+  </div>
 </div>
 
 <script>
-let data = JSON.parse(localStorage.getItem("trackerData"));
+// ============================================
+// YOUR FIREBASE CONFIGURATION
+// ============================================
 
-if (!data) {
-  data = {
-    cols: ["Name 1","Name 2","Name 3"],
-    rows: ["Fajr","Dhuhr","Asr","Maghrib","Isha"],
-    checks: {},
-    notes: ""
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyD-IquEthu2KPDlH5F5z5cGOItR_rVJXXo",
+  authDomain: "namaz-tracker-f3cdb.firebaseapp.com",
+  databaseURL: "https://namaz-tracker-f3cdb-default-rtdb.firebaseio.com",
+  projectId: "namaz-tracker-f3cdb",
+  storageBucket: "namaz-tracker-f3cdb.firebasestorage.app",
+  messagingSenderId: "120676080487",
+  appId: "1:120676080487:web:ce00486f0d2fda475cadc2",
+  measurementId: "G-Z7XZFCX1CK"
+};
+
+// ============================================
+// APP STATE
+// ============================================
+
+let db = null;
+let dataRef = null;
+let currentSpace = null;
+let data = null;
+
+// Default data structure
+const defaultData = {
+  cols: ["Zain", "Abbu"],
+  rows: ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"],
+  checks: {},
+  notes: ""
+};
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+function init() {
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  
+  // Check URL for space code
+  const urlParams = new URLSearchParams(window.location.search);
+  const spaceFromUrl = urlParams.get('space');
+  const savedSpace = localStorage.getItem('prayerTrackerSpace');
+  
+  if (spaceFromUrl) {
+    joinSpaceDirectly(spaceFromUrl);
+  } else if (savedSpace) {
+    joinSpaceDirectly(savedSpace);
+  } else {
+    // Show setup screen
+    document.getElementById('setupScreen').style.display = 'block';
+  }
 }
+
+// ============================================
+// SPACE MANAGEMENT
+// ============================================
+
+function generateSpaceCode() {
+  const words = ['family', 'home', 'prayers', 'blessed', 'united', 'peace', 'namaz', 'salah'];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const num = Math.floor(Math.random() * 9999);
+  return `${word}-${num}`;
+}
+
+function createNewSpace() {
+  const name = document.getElementById('setupName').value.trim();
+  const spaceCode = generateSpaceCode();
+  
+  const initialData = {
+    ...defaultData,
+    cols: name ? [name, "Person 2"] : defaultData.cols,
+    created: Date.now()
+  };
+  
+  db.ref('spaces/' + spaceCode).set(initialData).then(() => {
+    localStorage.setItem('prayerTrackerSpace', spaceCode);
+    joinSpaceDirectly(spaceCode);
+  }).catch(err => {
+    alert('Error creating space: ' + err.message);
+  });
+}
+
+function joinSpace() {
+  const code = document.getElementById('joinCode').value.trim().toLowerCase();
+  if (!code) {
+    alert('Please enter a space code');
+    return;
+  }
+  
+  db.ref('spaces/' + code).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      localStorage.setItem('prayerTrackerSpace', code);
+      joinSpaceDirectly(code);
+    } else {
+      alert('Space not found. Check the code and try again.');
+    }
+  });
+}
+
+function joinSpaceDirectly(spaceCode) {
+  currentSpace = spaceCode;
+  
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  
+  // Update URL without reload
+  const newUrl = window.location.pathname + '?space=' + spaceCode;
+  window.history.replaceState({}, '', newUrl);
+  
+  // Set up real-time listener
+  dataRef = db.ref('spaces/' + spaceCode);
+  
+  dataRef.on('value', (snapshot) => {
+    data = snapshot.val() || defaultData;
+    buildTable();
+    updateSyncStatus('connected', `✓ Synced • Code: ${spaceCode}`);
+  }, (error) => {
+    console.error('Sync error:', error);
+    updateSyncStatus('disconnected', '✗ Connection lost');
+  });
+  
+  // Monitor connection state
+  db.ref('.info/connected').on('value', (snap) => {
+    if (snap.val() === true) {
+      updateSyncStatus('connected', `✓ Synced • Code: ${spaceCode}`);
+    } else {
+      updateSyncStatus('disconnected', '⚠ Reconnecting...');
+    }
+  });
+  
+  // Notes auto-save with debounce
+  let notesTimeout;
+  document.getElementById('notes').addEventListener('input', () => {
+    clearTimeout(notesTimeout);
+    notesTimeout = setTimeout(() => {
+      if (dataRef) {
+        dataRef.child('notes').set(document.getElementById('notes').value);
+      }
+    }, 500);
+    adjustTextareaHeight();
+  });
+}
+
+function updateSyncStatus(status, message) {
+  const bar = document.getElementById('syncBar');
+  bar.className = 'sync-bar ' + status;
+  bar.innerHTML = message;
+}
+
+// ============================================
+// DATA OPERATIONS
+// ============================================
 
 function saveData() {
-  data.notes = document.getElementById("notes").value;
-  localStorage.setItem("trackerData", JSON.stringify(data));
+  if (dataRef) {
+    dataRef.set(data);
+  }
 }
+
+// ============================================
+// TABLE BUILDING
+// ============================================
 
 function buildTable() {
   const table = document.getElementById("grid");
   table.innerHTML = "";
 
-  // Header
+  // Header row
   let tr = document.createElement("tr");
   let th = document.createElement("th");
-  th.innerText = "Row";
+  th.innerText = "Prayer";
   tr.appendChild(th);
 
   data.cols.forEach((c, ci) => {
     let th = document.createElement("th");
     let inp = document.createElement("input");
-    inp.type="text";
-    inp.value=c;
+    inp.type = "text";
+    inp.value = c;
     inp.oninput = () => {
-      data.cols[ci]=inp.value;
+      data.cols[ci] = inp.value;
       saveData();
     };
     th.appendChild(inp);
@@ -158,29 +391,31 @@ function buildTable() {
   });
   table.appendChild(tr);
 
-  // Rows
+  // Data rows
   data.rows.forEach((r, ri) => {
     let tr = document.createElement("tr");
 
+    // Row label
     let tdLabel = document.createElement("td");
     let rowInp = document.createElement("input");
-    rowInp.type="text";
-    rowInp.value=r;
+    rowInp.type = "text";
+    rowInp.value = r;
     rowInp.oninput = () => {
-      data.rows[ri]=rowInp.value;
+      data.rows[ri] = rowInp.value;
       saveData();
     };
     tdLabel.appendChild(rowInp);
     tr.appendChild(tdLabel);
 
+    // Checkboxes
     data.cols.forEach((c, ci) => {
       let td = document.createElement("td");
       let cb = document.createElement("input");
-      cb.type="checkbox";
-      let key = ri+"-"+ci;
+      cb.type = "checkbox";
+      let key = ri + "-" + ci;
       cb.checked = data.checks[key] || false;
       cb.onchange = () => {
-        data.checks[key]=cb.checked;
+        data.checks[key] = cb.checked;
         saveData();
       };
       td.appendChild(cb);
@@ -196,21 +431,12 @@ function buildTable() {
   adjustTextareaHeight();
 }
 
-// Auto-expand textarea
-function adjustTextareaHeight() {
-  const notes = document.getElementById("notes");
-  notes.style.height = "1px"; // reset
-  notes.style.height = (notes.scrollHeight)+"px";
-}
-
-const notes = document.getElementById("notes");
-notes.addEventListener("input", () => {
-  saveData();
-  adjustTextareaHeight();
-});
+// ============================================
+// ACTIONS
+// ============================================
 
 function addColumn() {
-  data.cols.push("New Name");
+  data.cols.push("New Person");
   buildTable();
   saveData();
 }
@@ -221,7 +447,39 @@ function addRow() {
   saveData();
 }
 
-buildTable();
+function copyShareLink() {
+  if (!currentSpace) {
+    alert("No shared space active.");
+    return;
+  }
+  
+  const url = window.location.origin + window.location.pathname + '?space=' + currentSpace;
+  
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      alert(
+        "Share link copied!\n\n" +
+        "Link: " + url + "\n\n" +
+        "Space Code: " + currentSpace + "\n\n" +
+        "Send this to your dad so he can join!"
+      );
+    });
+  } else {
+    prompt("Copy this link:", url);
+  }
+}
+
+function adjustTextareaHeight() {
+  const notes = document.getElementById("notes");
+  notes.style.height = "1px";
+  notes.style.height = (notes.scrollHeight) + "px";
+}
+
+// ============================================
+// START
+// ============================================
+
+init();
 </script>
 
 </body>
