@@ -226,12 +226,14 @@ let currentSpace = null;
 let data = null;
 
 // Default data structure
-const defaultData = {
-  cols: ["Zain", "Abbu"],
-  rows: ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"],
-  checks: {},
-  notes: ""
-};
+function getDefaultData() {
+  return {
+    cols: ["Zain", "Abbu"],
+    rows: ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"],
+    checks: {},
+    notes: ""
+  };
+}
 
 // ============================================
 // INITIALIZATION
@@ -272,11 +274,11 @@ function createNewSpace() {
   const name = document.getElementById('setupName').value.trim();
   const spaceCode = generateSpaceCode();
   
-  const initialData = {
-    ...defaultData,
-    cols: name ? [name, "Person 2"] : defaultData.cols,
-    created: Date.now()
-  };
+  const initialData = getDefaultData();
+  if (name) {
+    initialData.cols = [name, "Person 2"];
+  }
+  initialData.created = Date.now();
   
   db.ref('spaces/' + spaceCode).set(initialData).then(() => {
     localStorage.setItem('prayerTrackerSpace', spaceCode);
@@ -317,12 +319,26 @@ function joinSpaceDirectly(spaceCode) {
   dataRef = db.ref('spaces/' + spaceCode);
   
   dataRef.on('value', (snapshot) => {
-    data = snapshot.val() || defaultData;
+    const rawData = snapshot.val();
+    if (rawData) {
+      // Firebase converts arrays to objects sometimes, so ensure arrays
+      data = {
+        cols: Array.isArray(rawData.cols) ? rawData.cols : Object.values(rawData.cols || {}),
+        rows: Array.isArray(rawData.rows) ? rawData.rows : Object.values(rawData.rows || {}),
+        checks: rawData.checks || {},
+        notes: rawData.notes || ""
+      };
+      // Ensure we have at least default values
+      if (data.cols.length === 0) data.cols = ["Person 1"];
+      if (data.rows.length === 0) data.rows = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+    } else {
+      data = getDefaultData();
+    }
     buildTable();
     updateSyncStatus('connected', `✓ Synced • Code: ${spaceCode}`);
   }, (error) => {
     console.error('Sync error:', error);
-    updateSyncStatus('disconnected', '✗ Connection lost');
+    updateSyncStatus('disconnected', '✗ Connection lost - ' + error.message);
   });
   
   // Monitor connection state
@@ -339,8 +355,9 @@ function joinSpaceDirectly(spaceCode) {
   document.getElementById('notes').addEventListener('input', () => {
     clearTimeout(notesTimeout);
     notesTimeout = setTimeout(() => {
-      if (dataRef) {
-        dataRef.child('notes').set(document.getElementById('notes').value);
+      if (dataRef && data) {
+        data.notes = document.getElementById('notes').value;
+        dataRef.child('notes').set(data.notes);
       }
     }, 500);
     adjustTextareaHeight();
@@ -358,8 +375,18 @@ function updateSyncStatus(status, message) {
 // ============================================
 
 function saveData() {
-  if (dataRef) {
-    dataRef.set(data);
+  if (dataRef && data) {
+    // Make sure we're saving proper arrays
+    const saveObj = {
+      cols: data.cols,
+      rows: data.rows,
+      checks: data.checks || {},
+      notes: data.notes || ""
+    };
+    dataRef.set(saveObj).catch(err => {
+      console.error('Save error:', err);
+      alert('Error saving: ' + err.message);
+    });
   }
 }
 
@@ -368,6 +395,8 @@ function saveData() {
 // ============================================
 
 function buildTable() {
+  if (!data) return;
+  
   const table = document.getElementById("grid");
   table.innerHTML = "";
 
@@ -378,16 +407,16 @@ function buildTable() {
   tr.appendChild(th);
 
   data.cols.forEach((c, ci) => {
-    let th = document.createElement("th");
+    let thEl = document.createElement("th");
     let inp = document.createElement("input");
     inp.type = "text";
-    inp.value = c;
+    inp.value = c || "";
     inp.oninput = () => {
       data.cols[ci] = inp.value;
       saveData();
     };
-    th.appendChild(inp);
-    tr.appendChild(th);
+    thEl.appendChild(inp);
+    tr.appendChild(thEl);
   });
   table.appendChild(tr);
 
@@ -399,7 +428,7 @@ function buildTable() {
     let tdLabel = document.createElement("td");
     let rowInp = document.createElement("input");
     rowInp.type = "text";
-    rowInp.value = r;
+    rowInp.value = r || "";
     rowInp.oninput = () => {
       data.rows[ri] = rowInp.value;
       saveData();
@@ -415,6 +444,7 @@ function buildTable() {
       let key = ri + "-" + ci;
       cb.checked = data.checks[key] || false;
       cb.onchange = () => {
+        if (!data.checks) data.checks = {};
         data.checks[key] = cb.checked;
         saveData();
       };
@@ -436,14 +466,26 @@ function buildTable() {
 // ============================================
 
 function addColumn() {
+  if (!data) {
+    alert('Please wait for data to load');
+    return;
+  }
+  if (!Array.isArray(data.cols)) {
+    data.cols = [];
+  }
   data.cols.push("New Person");
-  buildTable();
   saveData();
 }
 
 function addRow() {
+  if (!data) {
+    alert('Please wait for data to load');
+    return;
+  }
+  if (!Array.isArray(data.rows)) {
+    data.rows = [];
+  }
   data.rows.push("New Row");
-  buildTable();
   saveData();
 }
 
@@ -463,6 +505,8 @@ function copyShareLink() {
         "Space Code: " + currentSpace + "\n\n" +
         "Send this to your dad so he can join!"
       );
+    }).catch(() => {
+      prompt("Copy this link:", url);
     });
   } else {
     prompt("Copy this link:", url);
